@@ -4,7 +4,7 @@ set -e
 apt-get update -qq
 apt-get install -y -qq curl
 
-# Install K3s in server (controller) mode
+# Install K3s in server in controller mode
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode=644" sh -
 
 # Wait for K3s to be ready
