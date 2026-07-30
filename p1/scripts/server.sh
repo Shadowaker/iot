@@ -5,7 +5,7 @@ apt-get update -qq
 apt-get install -y -qq curl
 
 # Install K3s in server in controller mode
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode=644" sh -
+curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode=644 --disable=traefik --disable=servicelb --disable=metrics-server" sh -
 
 # Wait for K3s to be ready
 until kubectl get nodes 2>/dev/null | grep -q "Ready"; do
