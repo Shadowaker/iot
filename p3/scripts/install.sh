@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# curl
+if ! command -v curl &> /dev/null; then
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq curl
+fi
+
 # Docker
 if ! command -v docker &> /dev/null; then
   curl -fsSL https://get.docker.com | sh
