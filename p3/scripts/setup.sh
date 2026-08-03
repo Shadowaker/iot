@@ -9,11 +9,12 @@ k3d cluster create iot --port "8888:30888@server:0" --wait
 kubectl apply -f "$CONFS_DIR/namespace.yaml"
 
 # Install Argo CD into the argocd namespace
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# --server-side avoids kubectl's client-side "last-applied-configuration" annotation,
+# which overflows Kubernetes' 256KiB annotation limit on the large applicationsets.argoproj.io CRD.
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
 
 # Wait for the Application CRD to be registered before applying our Application
-# (it's installed by the same install.yaml above but can lag a few seconds behind argocd-server being ready)
 kubectl wait --for=condition=established --timeout=60s crd/applications.argoproj.io
 
 # Register the GitOps Application (auto-sync onto the dev namespace)
