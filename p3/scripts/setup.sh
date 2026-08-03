@@ -12,6 +12,10 @@ kubectl apply -f "$CONFS_DIR/namespace.yaml"
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 kubectl wait --for=condition=available deployment/argocd-server -n argocd --timeout=300s
 
+# Wait for the Application CRD to be registered before applying our Application
+# (it's installed by the same install.yaml above but can lag a few seconds behind argocd-server being ready)
+kubectl wait --for=condition=established --timeout=60s crd/applications.argoproj.io
+
 # Register the GitOps Application (auto-sync onto the dev namespace)
 kubectl apply -f "$CONFS_DIR/argocd-app.yaml"
 
