@@ -1,0 +1,95 @@
+#!/bin/bash
+set -e
+
+CONFS_DIR="$(cd "$(dirname "$0")/../confs" && pwd)"
+GITLAB_NS="gitlab"
+GITLAB_RELEASE="gitlab"
+GITLAB_PROJECT="iot-gitops"
+
+# --- Namespace ---
+kubectl create namespace "$GITLAB_NS" --dry-run=client -o yaml | kubectl apply -f -
+
+# --- Install GitLab via Helm ---
+helm repo add gitlab https://charts.gitlab.io/ >/dev/null 2>&1 || true
+helm repo update gitlab
+
+echo "Installing GitLab via Helm, it can take a while"
+helm upgrade --install "$GITLAB_RELEASE" gitlab/gitlab \
+  -n "$GITLAB_NS" \
+  -f "$CONFS_DIR/gitlab-values.yaml" \
+  --timeout 1200s \
+  --wait
+
+echo "Waiting for the GitLab toolbox (used to run gitlab-rails commands)..."
+kubectl rollout status deployment/"${GITLAB_RELEASE}"-toolbox -n "$GITLAB_NS" --timeout=600s
+TOOLBOX_POD=$(kubectl get pod -n "$GITLAB_NS" -l app=toolbox -o jsonpath='{.items[0].metadata.name}')
+
+echo "Fetching the initial root password..."
+ROOT_PASSWORD=$(kubectl get secret -n "$GITLAB_NS" "${GITLAB_RELEASE}-gitlab-initial-root-password" -o jsonpath='{.data.password}' | base64 -d)
+
+# --- Bootstrap: a Personal Access Token for root, used to create the project and push ---
+echo "Generating a Personal Access Token for root..."
+PAT=$(kubectl exec -n "$GITLAB_NS" "$TOOLBOX_POD" -- gitlab-rails runner "
+  token = User.find_by_username('root').personal_access_tokens.create(
+    scopes: [:api, :write_repository],
+    name: 'bootstrap',
+    expires_at: 365.days.from_now
+  )
+  token.set_token('bootstrap-' + SecureRandom.hex(10))
+  token.save!
+  puts token.token
+" | tail -1)
+
+echo "Creating the '$GITLAB_PROJECT' project..."
+kubectl exec -n "$GITLAB_NS" "$TOOLBOX_POD" -- curl --silent --request POST \
+  --header "PRIVATE-TOKEN: $PAT" \
+  --data "name=$GITLAB_PROJECT&visibility=public" \
+  "http://localhost:8181/api/v4/projects" > /dev/null
+
+# --- Push the same manifests used in p3 into the new GitLab project ---
+echo "Port-forwarding GitLab's webservice locally to push the initial manifests..."
+kubectl port-forward -n "$GITLAB_NS" "svc/${GITLAB_RELEASE}-webservice-default" 8181:8181 &
+PF_PID=$!
+trap 'kill "$PF_PID" 2>/dev/null || true' EXIT
+sleep 5
+
+WORKDIR=$(mktemp -d)
+git clone "http://root:${PAT}@localhost:8181/root/${GITLAB_PROJECT}.git" "$WORKDIR"
+wget https://raw.githubusercontent.com/Shadowaker/dridolfo-cd/refs/heads/master/manifests/deployment.yaml
+cp -r deployment.yaml "$WORKDIR/"
+(
+  cd "$WORKDIR"
+  git add manifests
+  git commit -m "Initial manifests"
+  git push origin HEAD:master
+)
+rm -rf "$WORKDIR"
+
+kill "$PF_PID" 2>/dev/null || true
+trap - EXIT
+
+# --- Register the local GitLab repo with Argo CD, then re-point iot-app at it ---
+echo "Registering the local GitLab repo credentials with Argo CD..."
+kubectl apply -n argocd -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: http://${GITLAB_RELEASE}-webservice-default.${GITLAB_NS}.svc:8181/root/${GITLAB_PROJECT}.git
+  username: root
+  password: "${PAT}"
+EOF
+
+echo "Re-pointing the iot-app Argo CD Application at local GitLab..."
+kubectl apply -f "$CONFS_DIR/argocd-app-gitlab.yaml"
+
+echo
+echo "Bonus setup complete."
+echo "GitLab root password: $ROOT_PASSWORD"
+echo "GitLab UI: kubectl port-forward -n gitlab svc/${GITLAB_RELEASE}-webservice-default 8181:8181  then browse http://localhost:8181"
+echo "Verify sync: kubectl get application -n argocd iot-app"

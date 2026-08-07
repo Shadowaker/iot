@@ -1,0 +1,56 @@
+
+global:
+  edition: ce
+  hosts:
+    domain: gitlab.local
+  ingress:
+    enabled: false
+  smtp:
+    enabled: false
+  appConfig:
+    applicationSettingsCacheSeconds: 60
+
+certmanager:
+  install: false
+
+nginx-ingress:
+  enabled: false
+
+gitlab-runner:
+  install: false
+
+prometheus:
+  install: false
+
+grafana:
+  enabled: false
+
+registry:
+  enabled: false
+
+gitlab:
+  webservice:
+    minReplicas: 1
+    maxReplicas: 1
+    resources:
+      requests:
+        cpu: 300m
+        memory: 1.5Gi
+  sidekiq:
+    minReplicas: 1
+    maxReplicas: 1
+  gitaly:
+    persistence:
+      size: 10Gi
+  toolbox:
+    enabled: true
+
+postgresql:
+  install: true
+
+redis:
+  install: true
+
+minio:
+  persistence:
+    size: 10Gi
