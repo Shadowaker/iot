@@ -5,6 +5,7 @@ global:
     domain: gitlab.local
   ingress:
     enabled: false
+    configureCertmanager: false
   smtp:
     enabled: false
   appConfig:
