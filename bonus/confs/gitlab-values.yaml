@@ -6,6 +6,9 @@ global:
   ingress:
     enabled: false
     configureCertmanager: false
+  gatewayApi:
+    enabled: false
+    configureCertmanager: false
   smtp:
     enabled: false
   appConfig:
