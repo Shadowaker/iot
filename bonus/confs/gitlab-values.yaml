@@ -10,8 +10,7 @@ global:
   appConfig:
     applicationSettingsCacheSeconds: 60
 
-certmanager:
-  install: false
+installCertmanager: false
 
 nginx-ingress:
   enabled: false
