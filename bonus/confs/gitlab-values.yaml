@@ -48,12 +48,6 @@ gitlab:
   toolbox:
     enabled: true
 
-postgresql:
-  install: true
-
-redis:
-  install: true
-
 minio:
   persistence:
     size: 10Gi
