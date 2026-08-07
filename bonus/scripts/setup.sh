@@ -9,6 +9,49 @@ GITLAB_PROJECT="iot-gitops"
 # --- Namespace ---
 kubectl create namespace "$GITLAB_NS" --dry-run=client -o yaml | kubectl apply -f -
 
+# --- External Postgres/Redis/MinIO ---
+# The chart no longer bundles these (removed in chart 10.0 / GitLab 19), so deploy
+# standalone instances first and wait for them before installing GitLab itself.
+# Credentials are generated here (random, per run) rather than committed to git.
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+REDIS_PASSWORD=$(openssl rand -hex 16)
+MINIO_ROOT_USER="gitlab"
+MINIO_ROOT_PASSWORD=$(openssl rand -hex 16)
+
+kubectl create secret generic gitlab-postgres-app -n "$GITLAB_NS" \
+  --from-literal=password="$POSTGRES_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create secret generic gitlab-redis-auth -n "$GITLAB_NS" \
+  --from-literal=password="$REDIS_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create secret generic gitlab-minio-root -n "$GITLAB_NS" \
+  --from-literal=root-user="$MINIO_ROOT_USER" \
+  --from-literal=root-password="$MINIO_ROOT_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# fog-aws connection secret for GitLab's consolidated object storage, pointing at the
+# MinIO deployed below.
+kubectl create secret generic gitlab-rails-storage -n "$GITLAB_NS" \
+  --from-literal=connection="provider: AWS
+region: us-east-1
+aws_access_key_id: ${MINIO_ROOT_USER}
+aws_secret_access_key: ${MINIO_ROOT_PASSWORD}
+endpoint: http://gitlab-minio.gitlab.svc.cluster.local:9000
+path_style: true" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl apply -f "$CONFS_DIR/postgres.yaml"
+kubectl apply -f "$CONFS_DIR/redis.yaml"
+kubectl apply -f "$CONFS_DIR/minio.yaml"
+
+echo "Waiting for Postgres, Redis and MinIO to be ready..."
+kubectl rollout status deployment/gitlab-postgresql -n "$GITLAB_NS" --timeout=180s
+kubectl rollout status deployment/gitlab-redis -n "$GITLAB_NS" --timeout=180s
+kubectl rollout status deployment/gitlab-minio -n "$GITLAB_NS" --timeout=180s
+kubectl wait --for=condition=complete --timeout=180s job/gitlab-minio-create-buckets -n "$GITLAB_NS"
+
 # --- Install GitLab via Helm ---
 helm repo add gitlab https://charts.gitlab.io/ >/dev/null 2>&1 || true
 helm repo update gitlab
