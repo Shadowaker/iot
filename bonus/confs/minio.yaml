@@ -75,7 +75,7 @@ spec:
             echo "Waiting for MinIO..."
             sleep 3
           done
-          for bucket in uploads artifacts lfs packages; do
+          for bucket in uploads artifacts lfs packages backup tmp; do
             mc mb --ignore-existing "gitlab/gitlab-${bucket}-storage"
           done
         env:

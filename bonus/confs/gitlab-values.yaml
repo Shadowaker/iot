@@ -18,6 +18,9 @@ global:
       connection:
         secret: gitlab-rails-storage
         key: connection
+    backups:
+      bucket: gitlab-backup-storage
+      tmpBucket: gitlab-tmp-storage
   psql:
     host: gitlab-postgresql.gitlab.svc.cluster.local
     password:
@@ -64,3 +67,9 @@ gitlab:
       size: 10Gi
   toolbox:
     enabled: true
+    backups:
+      objectStorage:
+        backend: s3
+        config:
+          secret: gitlab-backup-s3cfg
+          key: config

@@ -42,6 +42,18 @@ endpoint: http://gitlab-minio.gitlab.svc.cluster.local:9000
 path_style: true" \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# s3cmd config for the toolbox's separate backup/restore mechanism (gitlab.toolbox.backups).
+kubectl create secret generic gitlab-backup-s3cfg -n "$GITLAB_NS" \
+  --from-literal=config="[default]
+access_key = ${MINIO_ROOT_USER}
+secret_key = ${MINIO_ROOT_PASSWORD}
+bucket_location = us-east-1
+host_base = gitlab-minio.gitlab.svc.cluster.local:9000
+host_bucket = gitlab-minio.gitlab.svc.cluster.local:9000
+use_https = False
+signature_v2 = False" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 kubectl apply -f "$CONFS_DIR/postgres.yaml"
 kubectl apply -f "$CONFS_DIR/redis.yaml"
 kubectl apply -f "$CONFS_DIR/minio.yaml"
