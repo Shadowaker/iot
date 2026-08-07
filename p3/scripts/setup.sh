@@ -28,3 +28,5 @@ kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.pas
 # "To view the Argo CD UI: kubectl port-forward -n argocd svc/argocd-server 8080:443"
 # "Then browse to https://localhost:8080 (user: admin)"
 # "App: curl http://localhost:8888/"
+#  Per il port-forward: kubectl port-forward -n argocd svc/argocd-server 8080:443
+
