@@ -16,6 +16,10 @@ spec:
       containers:
       - name: postgresql
         image: postgres:16-alpine
+        args:
+        - postgres
+        - -c
+        - max_locks_per_transaction=512
         env:
         - name: POSTGRES_USER
           value: gitlab
