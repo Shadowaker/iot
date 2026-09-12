@@ -67,10 +67,6 @@ spec:
       containers:
       - name: mc
         image: cgr.dev/chainguard/minio-client:latest
-        # Chainguard's minio-client image has no shell, so this can't be a "sh -c" script.
-        # MC_HOST_<alias> lets mc resolve the "gitlab" alias without a prior "mc alias set" call,
-        # and "mc mb" takes multiple targets, replacing the shell for-loop. Retries on a not-yet-ready
-        # MinIO are handled by the Job's own restartPolicy/backoffLimit below, not a wait-loop here.
         command:
         - mc
         - mb

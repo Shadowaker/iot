@@ -12,11 +12,22 @@ kubectl create namespace "$GITLAB_NS" --dry-run=client -o yaml | kubectl apply -
 # --- External Postgres/Redis/MinIO ---
 # The chart no longer bundles these (removed in chart 10.0 / GitLab 19), so deploy
 # standalone instances first and wait for them before installing GitLab itself.
-# Credentials are generated here (random, per run) rather than committed to git.
-POSTGRES_PASSWORD=$(openssl rand -hex 16)
-REDIS_PASSWORD=$(openssl rand -hex 16)
+# Credentials are generated here (random on first run) rather than committed to git.
+secret_value_or_generate() {
+  local secret="$1" key="$2"
+  local existing
+  existing=$(kubectl get secret "$secret" -n "$GITLAB_NS" -o jsonpath="{.data.$key}" 2>/dev/null | base64 -d 2>/dev/null || true)
+  if [ -n "$existing" ]; then
+    echo "$existing"
+  else
+    openssl rand -hex 16
+  fi
+}
+
+POSTGRES_PASSWORD=$(secret_value_or_generate gitlab-postgres-app password)
+REDIS_PASSWORD=$(secret_value_or_generate gitlab-redis-auth password)
 MINIO_ROOT_USER="gitlab"
-MINIO_ROOT_PASSWORD=$(openssl rand -hex 16)
+MINIO_ROOT_PASSWORD=$(secret_value_or_generate gitlab-minio-root root-password)
 
 kubectl create secret generic gitlab-postgres-app -n "$GITLAB_NS" \
   --from-literal=password="$POSTGRES_PASSWORD" \
