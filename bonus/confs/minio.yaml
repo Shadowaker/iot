@@ -67,17 +67,20 @@ spec:
       containers:
       - name: mc
         image: cgr.dev/chainguard/minio-client:latest
+        # Chainguard's minio-client image has no shell, so this can't be a "sh -c" script.
+        # MC_HOST_<alias> lets mc resolve the "gitlab" alias without a prior "mc alias set" call,
+        # and "mc mb" takes multiple targets, replacing the shell for-loop. Retries on a not-yet-ready
+        # MinIO are handled by the Job's own restartPolicy/backoffLimit below, not a wait-loop here.
         command:
-        - /bin/sh
-        - -c
-        - |
-          until mc alias set gitlab http://gitlab-minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
-            echo "Waiting for MinIO..."
-            sleep 3
-          done
-          for bucket in uploads artifacts lfs packages backup tmp; do
-            mc mb --ignore-existing "gitlab/gitlab-${bucket}-storage"
-          done
+        - mc
+        - mb
+        - --ignore-existing
+        - gitlab/gitlab-uploads-storage
+        - gitlab/gitlab-artifacts-storage
+        - gitlab/gitlab-lfs-storage
+        - gitlab/gitlab-packages-storage
+        - gitlab/gitlab-backup-storage
+        - gitlab/gitlab-tmp-storage
         env:
         - name: MINIO_ROOT_USER
           valueFrom:
@@ -89,3 +92,5 @@ spec:
             secretKeyRef:
               name: gitlab-minio-root
               key: root-password
+        - name: MC_HOST_gitlab
+          value: http://$(MINIO_ROOT_USER):$(MINIO_ROOT_PASSWORD)@gitlab-minio:9000
