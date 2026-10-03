@@ -13,6 +13,9 @@ if ! command -v docker &> /dev/null; then
   sudo usermod -aG docker "$USER"
 fi
 
+# To make the docker usable by user
+sudo usermod -aG docker "$USER"
+
 # kubectl
 if ! command -v kubectl &> /dev/null; then
   KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)

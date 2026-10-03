@@ -107,10 +107,13 @@ PAT=$(kubectl exec -n "$GITLAB_NS" "$TOOLBOX_POD" -- gitlab-rails runner "
 " | tail -1)
 
 echo "Creating the '$GITLAB_PROJECT' project..."
+# "localhost" is wrong here: this curl runs inside the toolbox pod (via kubectl exec), a
+# separate pod from webservice/workhorse, so it must target the Service DNS name instead
+# (same host used for the repoURL below, not the host-side port-forward used after this).
 kubectl exec -n "$GITLAB_NS" "$TOOLBOX_POD" -- curl --silent --request POST \
   --header "PRIVATE-TOKEN: $PAT" \
   --data "name=$GITLAB_PROJECT&visibility=public" \
-  "http://localhost:8181/api/v4/projects" > /dev/null
+  "http://${GITLAB_RELEASE}-webservice-default.${GITLAB_NS}.svc:8181/api/v4/projects" > /dev/null
 
 # --- Push the same manifests used in p3 into the new GitLab project ---
 echo "Port-forwarding GitLab's webservice locally to push the initial manifests..."
