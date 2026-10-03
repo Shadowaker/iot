@@ -4,8 +4,6 @@ set -e
 apt-get update -qq
 apt-get install -y -qq curl
 apt-get install -y net-tools
-apt-get install -y virtualbox
-apt-get install -y virtualbox-ext-pack
 
 # Install K3s in server in controller mode
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode=644 --disable=traefik --disable=servicelb --disable=metrics-server" sh -
