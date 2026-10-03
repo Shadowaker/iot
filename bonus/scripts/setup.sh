@@ -124,12 +124,13 @@ sleep 5
 
 WORKDIR=$(mktemp -d)
 git clone "http://root:${PAT}@localhost:8181/root/${GITLAB_PROJECT}.git" "$WORKDIR"
-wget https://raw.githubusercontent.com/Shadowaker/dridolfo-cd/refs/heads/master/manifests/deployment.yaml
-cp -r deployment.yaml "$WORKDIR/"
+# Download straight into the repo's manifests/ dir (Argo CD's source.path is "manifests")
+mkdir -p "$WORKDIR/manifests"
+wget -O "$WORKDIR/manifests/deployment.yaml" https://raw.githubusercontent.com/Shadowaker/dridolfo-cd/refs/heads/master/manifests/deployment.yaml
 (
   cd "$WORKDIR"
   git add manifests
-  git commit -m "Initial manifests"
+  git -c user.name="root" -c user.email="root@gitlab.local" commit -m "Initial manifests"
   git push origin HEAD:master
 )
 rm -rf "$WORKDIR"
